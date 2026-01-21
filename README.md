@@ -14,7 +14,7 @@ A side-scrolling plane shooter game built with Phaser 3. Dodge enemies, shoot mi
 - **Combat System**: 
   - Destroy enemies with missiles (+10 points each)
   - Collision with enemies reduces health (-25 HP)
-  - Collision with terrain reduces health (-25 HP)
+  - Collision with terrain reduces overs game!
 - **UI System**: 
   - Real-time score display
   - Health tracking (100 HP total)
@@ -59,7 +59,6 @@ A side-scrolling plane shooter game built with Phaser 3. Dodge enemies, shoot mi
 PlaneGame/
 ├── Plane.html          # Main HTML file
 ├── Plane.js            # Game logic and mechanics
-├── flappy.css          # Styling
 ├── assets/             # Game assets
 │   ├── skys.png        # Background image
 │   ├── trees.png       # Terrain texture
