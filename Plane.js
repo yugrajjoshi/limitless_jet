@@ -1,7 +1,7 @@
 class PlaneGame extends Phaser.Scene {
   constructor() {
     super({ key: 'PlaneGame' });
-    // Initialize all variables as properties
+
     this.playerBullets = null;
     this.enemyMissiles = null;
     this.plane = null;
@@ -22,6 +22,7 @@ class PlaneGame extends Phaser.Scene {
   }
 
   preload() {
+  
     this.load.image('bg', "assets/skys.png");
     this.load.image('terrain', 'assets/trees.png');
     this.load.image('Plane', 'assets/plane.png');
@@ -30,9 +31,9 @@ class PlaneGame extends Phaser.Scene {
   }
 
   create() {
+  
     this.bg = this.add.tileSprite(750, 475, this.scale.width, this.scale.height, 'bg').setScale(4);
     
-    // Two terrain strips to create a seamless scrolling ground
     this.terrainA = this.physics.add.image(0, this.scale.height, 'terrain')
       .setOrigin(0, 1)
       .setDisplaySize(this.scale.width, 100);
@@ -45,32 +46,29 @@ class PlaneGame extends Phaser.Scene {
     this.terrainB.body.setAllowGravity(false);
     this.terrainB.setImmovable(true);
 
-    // Create plane sprite
+  
     this.plane = this.physics.add.sprite(175, 300, 'Plane').setScale(0.6);
     this.plane.setCollideWorldBounds(true);
     this.plane.body.setDrag(1);
     this.plane.body.setMaxVelocity(300);
-    // Only lower half of the plane collides/overlaps with terrain
+  
     this.plane.body.setSize(this.plane.displayWidth * 1.1, this.plane.displayHeight * 0.3, true);
     this.plane.body.setOffset(this.plane.displayWidth * 0.2, this.plane.displayHeight * 0.5);
 
-    // Setup cursor controls
+    
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spacebar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    // Create bullets group
+
     this.playerBullets = this.physics.add.group();
-
-    // Create enemy missiles group
     this.enemyMissiles = this.physics.add.group();
-
-    // Create UI text
+    //score display
     this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#ffffff' })
       .setScrollFactor(0);
     this.healthText = this.add.text(this.scale.width - 250, 16, 'Health: 100', { fontSize: '32px', fill: '#ffffff' })
       .setScrollFactor(0);
 
-    // Enemies group and spawn timer
+    // Senemy spawn timer
     this.enemies = this.physics.add.group();
     this.enemySpawnTimer = this.time.addEvent({
       delay: 3000,
@@ -78,7 +76,7 @@ class PlaneGame extends Phaser.Scene {
       callback: () => this.spawnEnemy()
     });
 
-    // Collisions
+    //collision
     this.physics.add.overlap(this.playerBullets, this.enemies, this.enemyHit, null, this);
     this.physics.add.overlap(this.plane, this.enemies, this.planeEnemyHit, null, this);
     this.physics.add.overlap(this.plane, [this.terrainA, this.terrainB], this.planeTerrainHit, null, this);
@@ -102,7 +100,7 @@ class PlaneGame extends Phaser.Scene {
       targetAngle = 30;
     }
 
-    // Smooth rotation with lerp
+    // Smooth rotation 
     this.plane.angle = Phaser.Math.Linear(this.plane.angle, targetAngle, 0.01);
 
     if (this.cursors.right.isDown) {
@@ -117,37 +115,33 @@ class PlaneGame extends Phaser.Scene {
       this.plane.setVelocityX(-230);
       targetAngle = -20;
     }
-
-    // Shooting missiles
     if (Phaser.Input.Keyboard.JustDown(this.spacebar) && this.canShoot) {
       this.shootMissile();
     }
-
-    // Remove bullets that go off-screen
+    // Remove off-screen bullets and missiles
     this.playerBullets.children.entries.forEach(bullet => {
       if (bullet.x > this.game.config.width || bullet.y > this.game.config.height || bullet.y < 0) {
         bullet.destroy();
       }
     });
-
-    // Remove enemy missiles that go off-screen
+  
     this.enemyMissiles.children.entries.forEach(missile => {
       if (missile.x < -50 || missile.y < -50 || missile.y > this.game.config.height + 50) {
         missile.destroy();
       }
     });
 
-    // Remove enemies that go off-screen
     this.enemies.children.entries.forEach(enemy => {
       if (enemy.x < -enemy.displayWidth || enemy.y < -50 || enemy.y > this.game.config.height + 50) {
         enemy.destroy();
       }
     });
 
-    // Scroll background
+    // Keep the background moving
     this.bg.tilePositionX += this.scrollSpeed * 0.3;
 
-    // Scroll terrain strips and wrap
+  
+
     this.terrainA.x -= this.scrollSpeed * 2;
     this.terrainB.x -= this.scrollSpeed * 2;
 
@@ -178,7 +172,6 @@ class PlaneGame extends Phaser.Scene {
     enemy.setCollideWorldBounds(false);
     enemy.body.allowGravity = false;
 
-    // Enemy shoots periodically (every 1.5-2.5 seconds)
     enemy.shootTimer = this.time.addEvent({
       delay: Phaser.Math.Between(1500, 2500),
       loop: true,
@@ -203,7 +196,7 @@ class PlaneGame extends Phaser.Scene {
     this.healthText.setText('Health: ' + this.health);
     plane.setTint(0xff0000);
     
-    // Reset tint after brief flash
+    
     this.time.delayedCall(100, () => {
       if (plane.active) plane.clearTint();
     });
@@ -215,16 +208,15 @@ class PlaneGame extends Phaser.Scene {
   }
 
   enemyShoot(enemy) {
-    // Create missile from enemy position
+    
     const missile = this.enemyMissiles.create(enemy.x - 80, enemy.y, 'missile').setScale(0.02);
-    missile.setTint(0xff0000); // Red tint for enemy missiles
+    missile.setTint(0xff0000); 
     missile.body.allowGravity = false;
     
-    // Aim toward player's current position
     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.plane.x, this.plane.y);
     missile.setRotation(angle);
     
-    // Set velocity toward player
+   
     const speed = 500;
     missile.setVelocityX(Math.cos(angle) * speed);
     missile.setVelocityY(Math.sin(angle) * speed);
@@ -236,7 +228,7 @@ class PlaneGame extends Phaser.Scene {
     this.healthText.setText('Health: ' + this.health);
     plane.setTint(0xff0000);
     
-    // Reset tint after brief flash
+   
     this.time.delayedCall(100, () => {
       if (plane.active) plane.clearTint();
     });
@@ -258,7 +250,7 @@ class PlaneGame extends Phaser.Scene {
   }
 
   gameover() {
-    // Show game over and return to menu after 2 seconds
+  
     this.plane.setTint(0xff0000);
     this.plane.setVelocity(0, 0);
     this.scrollSpeed = 0;
