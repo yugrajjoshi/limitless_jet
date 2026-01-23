@@ -15,10 +15,20 @@ class PlaneGame extends Phaser.Scene {
     this.score = 0;
     this.health = 100;
     this.scoreText = null;
+    this.hightestScore = 0;
+    this.hightestScoreText = null;
     this.healthText = null;
     this.baseScrollSpeed = 1;
     this.scrollSpeed = 1;
     this.canShoot = true;
+    this.lastDifficultyScore =0;
+    this.enemySpawnDelay = 3000;
+    this.explosionSound = null;
+    this.shootSound = null;
+    this.isPaused = false;
+    this.pauseKey = null;
+    this.pauseText = null;
+    
   }
 
   preload() {
@@ -28,21 +38,26 @@ class PlaneGame extends Phaser.Scene {
     this.load.image('Plane', 'assets/plane.png');
     this.load.image('missile', "assets/missile.png");
     this.load.image('enemy', "assets/enemy.png");
+    this.load.audio('explosionSound', 'assets/blastsound.mp3');
+    this.load.audio('bgsound','assets/ingamesound.mp3');
+    this.load.audio('shootSound', 'assets/missilelaunch.mp3');
   }
 
   create() {
-  
+    this.sound.add('bgsound',{loop:true, volume:0.5}).play();
+    this.explosionSound = this.sound.add('explosionSound');
+    this.shootSound =this.sound.add('shootSound');
     this.bg = this.add.tileSprite(750, 475, this.scale.width, this.scale.height, 'bg').setScale(4);
     
     this.terrainA = this.physics.add.image(0, this.scale.height, 'terrain')
-      .setOrigin(0, 1)
-      .setDisplaySize(this.scale.width, 100);
+      .setOrigin(0,0.8)
+      .setDisplaySize(this.scale.width, 120);
     this.terrainA.body.setAllowGravity(false);
     this.terrainA.setImmovable(true);
 
     this.terrainB = this.physics.add.image(this.scale.width, this.scale.height, 'terrain')
-      .setOrigin(0, 1)
-      .setDisplaySize(this.scale.width, 100);
+      .setOrigin(0, 0.8)
+      .setDisplaySize(this.scale.width, 120);
     this.terrainB.body.setAllowGravity(false);
     this.terrainB.setImmovable(true);
 
@@ -58,20 +73,31 @@ class PlaneGame extends Phaser.Scene {
     
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spacebar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
 
 
     this.playerBullets = this.physics.add.group();
     this.enemyMissiles = this.physics.add.group();
-    //score display
+
     this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#ffffff' })
       .setScrollFactor(0);
-    this.healthText = this.add.text(this.scale.width - 250, 16, 'Health: 100', { fontSize: '32px', fill: '#ffffff' })
+    this.healthText = this.add.text(16, 48, 'Health: 100', { fontSize: '32px', fill: '#ffffff' })
       .setScrollFactor(0);
+    this.heighestScore = parseInt(localStorage.getItem('planeGameHighScore')) || 0;
+    this.hightestScoreText = this.add.text(16, 80, 'High Score: ' + this.heighestScore, { fontSize: '32px', fill: '#ffff00' })
+      .setScrollFactor(0);
+    
+    this.pauseText = this.add.text(750, 384, 'PAUSED', {
+      fontSize: '64px',
+      fill: '#ffff00',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0);
+    this.pauseText.setVisible(false);
 
-    // Senemy spawn timer
+    // Enemy spawn timer
     this.enemies = this.physics.add.group();
     this.enemySpawnTimer = this.time.addEvent({
-      delay: 3000,
+      delay: this.enemySpawnDelay,
       loop: true,
       callback: () => this.spawnEnemy()
     });
@@ -81,9 +107,20 @@ class PlaneGame extends Phaser.Scene {
     this.physics.add.overlap(this.plane, this.enemies, this.planeEnemyHit, null, this);
     this.physics.add.overlap(this.plane, [this.terrainA, this.terrainB], this.planeTerrainHit, null, this);
     this.physics.add.overlap(this.plane, this.enemyMissiles, this.playerMissileHit, null, this);
+   
   }
 
   update() {
+    // Handle pause toggle (must be outside pause check to allow unpausing)
+    if (Phaser.Input.Keyboard.JustDown(this.pauseKey)) {
+      this.togglePause();
+    }
+    
+    // If paused, skip game logic but keep rendering
+    if (this.isPaused) {
+      return;
+    }
+    
     let moveSpeed = 150;
     let targetAngle = 0;
 
@@ -102,8 +139,7 @@ class PlaneGame extends Phaser.Scene {
 
     // Smooth rotation 
     this.plane.angle = Phaser.Math.Linear(this.plane.angle, targetAngle, 0.01);
-
-    if (this.cursors.right.isDown) {
+if (this.cursors.right.isDown) {
       this.plane.setVelocityX(130);
       this.scrollSpeed = this.baseScrollSpeed * 3;
     } else if (!this.cursors.right.isDown) {
@@ -118,6 +154,9 @@ class PlaneGame extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.spacebar) && this.canShoot) {
       this.shootMissile();
     }
+    
+    this.checkDifficulty();
+
     // Remove off-screen bullets and missiles
     this.playerBullets.children.entries.forEach(bullet => {
       if (bullet.x > this.game.config.width || bullet.y > this.game.config.height || bullet.y < 0) {
@@ -140,8 +179,6 @@ class PlaneGame extends Phaser.Scene {
     // Keep the background moving
     this.bg.tilePositionX += this.scrollSpeed * 0.3;
 
-  
-
     this.terrainA.x -= this.scrollSpeed * 2;
     this.terrainB.x -= this.scrollSpeed * 2;
 
@@ -156,7 +193,12 @@ class PlaneGame extends Phaser.Scene {
   shootMissile() {
     let missile = this.playerBullets.create(this.plane.x + 80, this.plane.y, 'missile').setScale(0.02);
     missile.setVelocityX(800).setVelocityY(this.plane.body.velocity.y);
+    missile.setSize(missile.displayWidth * 20, missile.displayHeight * 20, true);
+    missile.setOffset(missile.displayWidth *10, missile.displayHeight * 15);
     missile.body.allowGravity = false;
+    if(this.shootSound){
+      this.shootSound.play();
+    }
     missile.angle = this.plane.angle;
     this.canShoot = false;
     setTimeout(() => { this.canShoot = true; }, 500);
@@ -186,6 +228,10 @@ class PlaneGame extends Phaser.Scene {
   enemyHit(bullet, enemy) {
     bullet.destroy();
     enemy.destroy();
+    
+    if(this.explosionSound){
+      this.explosionSound.play();
+    }
     this.score += 10;
     this.scoreText.setText('Score: ' + this.score);
   }
@@ -195,7 +241,6 @@ class PlaneGame extends Phaser.Scene {
     this.health -= 25;
     this.healthText.setText('Health: ' + this.health);
     plane.setTint(0xff0000);
-    
     
     this.time.delayedCall(100, () => {
       if (plane.active) plane.clearTint();
@@ -210,13 +255,12 @@ class PlaneGame extends Phaser.Scene {
   enemyShoot(enemy) {
     
     const missile = this.enemyMissiles.create(enemy.x - 80, enemy.y, 'missile').setScale(0.02);
+    missile.setSize(missile.displayWidth * 20, missile.displayHeight * 20, true);
+    missile.setOffset(missile.displayWidth *10, missile.displayHeight * 15);
     missile.setTint(0xff0000); 
     missile.body.allowGravity = false;
-    
     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.plane.x, this.plane.y);
     missile.setRotation(angle);
-    
-   
     const speed = 500;
     missile.setVelocityX(Math.cos(angle) * speed);
     missile.setVelocityY(Math.sin(angle) * speed);
@@ -224,11 +268,13 @@ class PlaneGame extends Phaser.Scene {
 
   playerMissileHit(plane, missile) {
     missile.destroy();
+    if (this.explosionSound) {
+      this.explosionSound.play();
+    }
     this.health -= 15;
     this.healthText.setText('Health: ' + this.health);
     plane.setTint(0xff0000);
     
-   
     this.time.delayedCall(100, () => {
       if (plane.active) plane.clearTint();
     });
@@ -249,21 +295,65 @@ class PlaneGame extends Phaser.Scene {
     }
   }
 
-  gameover() {
+  checkDifficulty() {
+    if (this.score >= this.lastDifficultyScore + 100) {
+     
+      this.baseScrollSpeed += 0.5;
+
+      // Accelerate enemy 
+      this.enemySpawnDelay = Math.max(800, this.enemySpawnDelay - 200);
+
+      // Restart the spawn timer 
+      if (this.enemySpawnTimer) {
+        this.enemySpawnTimer.remove(false);
+      }
+      this.enemySpawnTimer = this.time.addEvent({
+        delay: this.enemySpawnDelay,
+        loop: true,
+        callback: () => this.spawnEnemy()
+      });
+
+      this.lastDifficultyScore = this.score;
+    }
+  }
   
+  togglePause() {
+    this.isPaused = !this.isPaused;
+    
+    if (this.isPaused) {
+      this.pauseText.setVisible(true);
+      this.physics.pause();
+      if (this.enemySpawnTimer) {
+        this.enemySpawnTimer.paused = true;
+      }
+    } else {
+      this.pauseText.setVisible(false);
+      this.physics.resume();
+      if (this.enemySpawnTimer) {
+        this.enemySpawnTimer.paused = false;
+      }
+    }
+  }
+  
+  checkHighScore() {
+    if (this.score > this.heighestScore) {
+      this.heighestScore = this.score;
+      localStorage.setItem('planeGameHighScore', this.heighestScore);
+      this.hightestScoreText.setText('High Score: ' + this.heighestScore);
+    }
+  }
+
+  gameover() {
     this.plane.setTint(0xff0000);
     this.plane.setVelocity(0, 0);
     this.scrollSpeed = 0;
-    this.baseScrollSpeed = 0;
-
-    this.time.delayedCall(2000, () => {
-      this.scene.start('MenuScene');
-    });
+    this.scene.start('OverScene', { score: this.score });
   }
+
 }
 
 let config = {
-  renderer: Phaser.AUTO,
+  type: Phaser.AUTO,
   width: 1500,
   height: 768,
   physics: {
@@ -273,7 +363,7 @@ let config = {
       debug: false,
     },
   },
-  scene: [MenuScene, PlaneGame]
+  scene: [MenuScene, PlaneGame, OverScene]
 };
 
 let game = new Phaser.Game(config);
