@@ -44,6 +44,16 @@ class PlaneGame extends Phaser.Scene {
   }
 
   create() {
+    // Reset game variables
+    this.score = 0;
+    this.health = 100;
+    this.baseScrollSpeed = 1;
+    this.scrollSpeed = 1;
+    this.lastDifficultyScore = 0;
+    this.enemySpawnDelay = 3000;
+    this.canShoot = true;
+    this.isPaused = false;
+    
     this.sound.add('bgsound',{loop:true, volume:0.5}).play();
     this.explosionSound = this.sound.add('explosionSound');
     this.shootSound =this.sound.add('shootSound');
