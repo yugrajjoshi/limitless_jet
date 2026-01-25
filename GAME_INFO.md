@@ -39,7 +39,7 @@ A side-scrolling plane shooter game built with Phaser 3. Dodge enemies, shoot mi
 ## 📁 Project Structure
 
 ```
-PlaneGame/
+Limitless_jet/
 ├── Plane.html          # Main HTML file
 ├── Plane.js            # Game logic and mechanics
 ├── assets/             # Game assets
@@ -48,7 +48,7 @@ PlaneGame/
 │   ├── plane.png       # Player sprite
 │   ├── enemy.png       # Enemy sprite
 │   └── missile.png     # Bullet sprite
-└── README.md           # This file
+└── GAME_INFO.md           # This file
 ```
 
 ##  Current Game Stats
