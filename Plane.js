@@ -28,6 +28,9 @@ class PlaneGame extends Phaser.Scene {
     this.isPaused = false;
     this.pauseKey = null;
     this.pauseText = null;
+    this.totalDistanceScrolled = 0;
+    this.distanceScore = 0;
+    this.distanceText = null;
     
   }
 
@@ -53,6 +56,8 @@ class PlaneGame extends Phaser.Scene {
     this.enemySpawnDelay = 3000;
     this.canShoot = true;
     this.isPaused = false;
+    this.totalDistanceScrolled = 0;
+    this.distanceScore = 0;
     
     this.sound.add('bgsound',{loop:true, volume:0.5}).play();
     this.explosionSound = this.sound.add('explosionSound');
@@ -92,6 +97,8 @@ class PlaneGame extends Phaser.Scene {
     this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#ffffff' })
       .setScrollFactor(0);
     this.healthText = this.add.text(16, 48, 'Health: 100', { fontSize: '32px', fill: '#ffffff' })
+      .setScrollFactor(0);
+    this.distanceText = this.add.text(16, 112, 'Distance: 0', { fontSize: '32px', fill: '#00ff00' })
       .setScrollFactor(0);
     this.heighestScore = parseInt(localStorage.getItem('planeGameHighScore')) || 0;
     this.hightestScoreText = this.add.text(16, 80, 'High Score: ' + this.heighestScore, { fontSize: '32px', fill: '#ffff00' })
@@ -187,7 +194,19 @@ if (this.cursors.right.isDown) {
     });
 
     // Keep the background moving
-    this.bg.tilePositionX += this.scrollSpeed * 0.3;
+    const scrollAmount = this.scrollSpeed * 0.3;
+    this.bg.tilePositionX += scrollAmount;
+    
+    //scoring distance based 
+    this.totalDistanceScrolled += scrollAmount;
+    const newDistanceScore = Math.floor(this.totalDistanceScrolled / 500) * 5;
+    const distancePointsGained = newDistanceScore - this.distanceScore;
+    if (distancePointsGained > 0) {
+      this.distanceScore = newDistanceScore;
+      this.score += distancePointsGained;
+      this.distanceText.setText('Distance: ' + Math.floor(this.totalDistanceScrolled));
+      this.scoreText.setText('Score: ' + this.score);
+    }
 
     this.terrainA.x -= this.scrollSpeed * 2;
     this.terrainB.x -= this.scrollSpeed * 2;
@@ -308,10 +327,10 @@ if (this.cursors.right.isDown) {
   checkDifficulty() {
     if (this.score >= this.lastDifficultyScore + 100) {
      
-      this.baseScrollSpeed += 0.5;
+      this.baseScrollSpeed += 0.2;
 
       // Accelerate enemy 
-      this.enemySpawnDelay = Math.max(800, this.enemySpawnDelay - 200);
+      this.enemySpawnDelay = Math.max(1500, this.enemySpawnDelay - 50);
 
       // Restart the spawn timer 
       if (this.enemySpawnTimer) {
